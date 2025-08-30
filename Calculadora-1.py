@@ -3,108 +3,122 @@ import math
 from fractions import Fraction
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QGridLayout,
-    QPushButton, QLineEdit, QMenuBar, QMenu, QAction, QMessageBox
+    QPushButton, QLineEdit, QMessageBox
 )
-from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
+
 
 class Calculadora(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Calculadora Qt — Multiplataforma")
+
+        # Janela principal
+        self.setWindowTitle("Calculadora Qt — PySide6")
         self.setGeometry(200, 200, 400, 400)
 
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-
-        self.layout = QVBoxLayout()
-        self.central_widget.setLayout(self.layout)
-
+        # Visor
         self.display = QLineEdit()
-        self.display.setAlignment(Qt.AlignRight)
         self.display.setReadOnly(True)
-        self.layout.addWidget(self.display)
+        self.display.setFixedHeight(40)
 
-        self.memory = 0  # memória da calculadora
+        # Memória da calculadora
+        self.memory = 0
 
-        self.criar_menu()
-        self.criar_botoes()
+        # Layout principal
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        v_layout = QVBoxLayout(central_widget)
+        v_layout.addWidget(self.display)
 
-    def criar_menu(self):
-        menubar = QMenuBar(self)
-        self.setMenuBar(menubar)
-
-        menu_ajuda = QMenu("Ajuda", self)
-        menubar.addMenu(menu_ajuda)
-
-        sobre = QAction("Sobre", self)
-        sobre.triggered.connect(self.mostrar_sobre)
-        menu_ajuda.addAction(sobre)
-
-    def mostrar_sobre(self):
-        QMessageBox.information(self, "Sobre", "Calculadora Qt com memória e frações. Funciona em Windows, Ubuntu e Mac.")
-
-    def criar_botoes(self):
+        # Botões
         grid = QGridLayout()
-        self.layout.addLayout(grid)
+        v_layout.addLayout(grid)
 
         botoes = [
-            ('7', 1, 0), ('8', 1, 1), ('9', 1, 2), ('/', 1, 3), ('MC', 1, 4),
-            ('4', 2, 0), ('5', 2, 1), ('6', 2, 2), ('*', 2, 3), ('MR', 2, 4),
-            ('1', 3, 0), ('2', 3, 1), ('3', 3, 2), ('-', 3, 3), ('MS', 3, 4),
-            ('0', 4, 0), ('.', 4, 1), ('=', 4, 2), ('+', 4, 3), ('M+', 4, 4),
-            ('C', 5, 0), ('√', 5, 1), ('x²', 5, 2), ('1/x', 5, 3), ('Frac', 5, 4)
+            ["7", "8", "9", "/", "√"],
+            ["4", "5", "6", "*", "^"],
+            ["1", "2", "3", "-", "1/x"],
+            ["0", ".", "=", "+", "Frac"],
+            ["MC", "MR", "MS", "M+", "C"],
         ]
 
-        for texto, linha, coluna in botoes:
-            botao = QPushButton(texto)
-            botao.clicked.connect(lambda _, t=texto: self.on_click(t))
-            grid.addWidget(botao, linha, coluna)
+        for i, linha in enumerate(botoes):
+            for j, texto in enumerate(linha):
+                botao = QPushButton(texto)
+                botao.setFixedSize(60, 40)
+                botao.clicked.connect(lambda _, t=texto: self.on_click(t))
+                grid.addWidget(botao, i, j)
 
-    def on_click(self, tecla):
-        if tecla == 'C':
+        # Menu
+        menu = self.menuBar()
+        menu_ajuda = menu.addMenu("Ajuda")
+
+        sobre_action = QAction("Sobre", self)
+        sobre_action.triggered.connect(self.sobre)
+        menu_ajuda.addAction(sobre_action)
+
+        sair_action = QAction("Sair", self)
+        sair_action.triggered.connect(self.close)
+        menu_ajuda.addAction(sair_action)
+
+    def on_click(self, texto):
+        if texto == "C":
             self.display.clear()
-        elif tecla == '=':
+        elif texto == "=":
             self.calcular()
-        elif tecla == '√':
+        elif texto == "√":
             self.display.insert("sqrt(")
-        elif tecla == 'x²':
-            self.display.insert("**2")
-        elif tecla == '1/x':
+        elif texto == "^":
+            self.display.insert("**")
+        elif texto == "1/x":
             self.display.insert("1/(")
-        elif tecla == 'Frac':
+        elif texto == "Frac":
             try:
                 valor = eval(self.display.text())
-                frac = Fraction(valor).limit_denominator()
-                self.display.setText(str(frac))
+                self.display.setText(str(Fraction(valor).limit_denominator()))
             except Exception:
                 self.display.setText("Erro")
-        elif tecla == 'MC':
-            self.memory = 0
-        elif tecla == 'MR':
-            self.display.setText(str(self.memory))
-        elif tecla == 'MS':
-            try:
-                self.memory = eval(self.display.text())
-            except Exception:
-                self.display.setText("Erro")
-        elif tecla == 'M+':
-            try:
-                self.memory += eval(self.display.text())
-            except Exception:
-                self.display.setText("Erro")
+        elif texto in ["MC", "MR", "MS", "M+"]:
+            self.memoria(texto)
         else:
-            self.display.insert(tecla)
+            self.display.insert(texto)
 
     def calcular(self):
         try:
             expressao = self.display.text()
-            resultado = eval(expressao, {"__builtins__": None}, {"sqrt": math.sqrt})
+            resultado = eval(
+                expressao,
+                {"__builtins__": None},
+                {"sqrt": math.sqrt, "Fraction": Fraction}
+            )
             self.display.setText(str(resultado))
         except Exception:
             self.display.setText("Erro")
 
+    def memoria(self, acao):
+        try:
+            if acao == "MC":
+                self.memory = 0
+            elif acao == "MR":
+                self.display.setText(str(self.memory))
+            elif acao == "MS":
+                self.memory = float(eval(self.display.text()))
+            elif acao == "M+":
+                self.memory += float(eval(self.display.text()))
+        except Exception:
+            self.display.setText("Erro")
+
+    def sobre(self):
+        QMessageBox.information(
+            self,
+            "Sobre",
+            "Calculadora Qt — compatível com Windows, Ubuntu e Mac\n\n"
+            "Inclui operações básicas, frações e memória de cálculo."
+        )
+
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    calc = Calculadora()
-    calc.show()
+    janela = Calculadora()
+    janela.show()
     sys.exit(app.exec())
